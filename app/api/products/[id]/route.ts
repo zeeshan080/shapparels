@@ -1,0 +1,122 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { products, productImages, productOptionTypes, productOptionValues, productVariants } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { auth } from "@/lib/auth/server";
+import { headers } from "next/headers";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  const [product] = await db.select().from(products).where(eq(products.id, id)).limit(1);
+
+  if (!product) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(product);
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const body = await request.json();
+
+    // Update product
+    const [updated] = await db
+      .update(products)
+      .set({
+        name: body.name,
+        slug: body.slug,
+        description: body.description,
+        shortDescription: body.shortDescription,
+        basePrice: body.basePrice?.toString(),
+        compareAtPrice: body.compareAtPrice?.toString() ?? null,
+        categoryId: body.categoryId || null,
+        metaTitle: body.metaTitle,
+        metaDescription: body.metaDescription,
+        stock: body.stock,
+        isFeatured: body.isFeatured,
+        isActive: body.isActive,
+        tags: body.tags,
+      })
+      .where(eq(products.id, id))
+      .returning();
+
+    if (!updated) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // Replace images
+    if (body.images) {
+      await db.delete(productImages).where(eq(productImages.productId, id));
+      if (body.images.length > 0) {
+        await db.insert(productImages).values(
+          body.images.map((url: string, index: number) => ({
+            productId: id,
+            url,
+            alt: body.name,
+            sortOrder: index,
+          }))
+        );
+      }
+    }
+
+    // Replace option types and values
+    if (body.optionTypes) {
+      await db.delete(productOptionTypes).where(eq(productOptionTypes.productId, id));
+      for (let i = 0; i < body.optionTypes.length; i++) {
+        const ot = body.optionTypes[i];
+        if (!ot.name) continue;
+        const [insertedType] = await db
+          .insert(productOptionTypes)
+          .values({ productId: id, name: ot.name, sortOrder: i })
+          .returning();
+
+        const validValues = ot.values.filter((v: string) => v.trim());
+        if (validValues.length > 0) {
+          await db.insert(productOptionValues).values(
+            validValues.map((v: string, j: number) => ({
+              optionTypeId: insertedType.id,
+              value: v,
+              sortOrder: j,
+            }))
+          );
+        }
+      }
+    }
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("Product update error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  await db.delete(products).where(eq(products.id, id));
+
+  return NextResponse.json({ success: true });
+}

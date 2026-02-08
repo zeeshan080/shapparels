@@ -1,0 +1,58 @@
+import Link from "next/link";
+import Image from "next/image";
+import { db } from "@/lib/db";
+import { categories } from "@/lib/db/schema";
+import { eq, asc } from "drizzle-orm";
+
+export async function CategoryGrid() {
+  const allCategories = await db
+    .select()
+    .from(categories)
+    .where(eq(categories.isActive, true))
+    .orderBy(asc(categories.sortOrder));
+
+  if (allCategories.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="text-center">
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-primary">
+          Browse by
+        </p>
+        <h2 className="mt-2 font-serif text-3xl font-bold sm:text-4xl">
+          Categories
+        </h2>
+      </div>
+      <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {allCategories.map((category) => (
+          <Link
+            key={category.id}
+            href={`/category/${category.slug}`}
+            className="group relative aspect-square overflow-hidden rounded-lg border border-border/50"
+          >
+            {category.image ? (
+              <Image
+                src={category.image}
+                alt={category.name}
+                fill
+                unoptimized
+                className="object-cover transition-transform duration-500 group-hover:scale-110"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+              />
+            ) : (
+              <div className="h-full w-full bg-card" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent" />
+            <div className="absolute inset-0 flex items-end p-4">
+              <h3 className="font-serif text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                {category.name}
+              </h3>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}

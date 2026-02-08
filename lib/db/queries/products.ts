@@ -1,0 +1,240 @@
+import { db } from "@/lib/db";
+import {
+  products,
+  productImages,
+  productVariants,
+  productOptionTypes,
+  productOptionValues,
+  categories,
+} from "@/lib/db/schema";
+import { eq, and, desc, asc, ilike, or, sql, inArray } from "drizzle-orm";
+
+export type ProductListItem = {
+  id: string;
+  name: string;
+  slug: string;
+  basePrice: string;
+  compareAtPrice: string | null;
+  stock: number;
+  isFeatured: boolean;
+  categoryName: string | null;
+  images: { url: string; alt: string | null }[];
+};
+
+interface GetProductsOptions {
+  categoryId?: string;
+  search?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sortBy?: "price-asc" | "price-desc" | "newest" | "name";
+  page?: number;
+  limit?: number;
+  featured?: boolean;
+}
+
+export async function getProducts(options: GetProductsOptions = {}) {
+  const { page = 1, limit = 12, sortBy = "newest" } = options;
+  const offset = (page - 1) * limit;
+
+  const conditions = [eq(products.isActive, true)];
+
+  if (options.categoryId) {
+    conditions.push(eq(products.categoryId, options.categoryId));
+  }
+
+  if (options.search) {
+    conditions.push(
+      or(
+        ilike(products.name, `%${options.search}%`),
+        ilike(products.description, `%${options.search}%`)
+      )!
+    );
+  }
+
+  if (options.minPrice !== undefined) {
+    conditions.push(sql`CAST(${products.basePrice} AS DECIMAL) >= ${options.minPrice}`);
+  }
+
+  if (options.maxPrice !== undefined) {
+    conditions.push(sql`CAST(${products.basePrice} AS DECIMAL) <= ${options.maxPrice}`);
+  }
+
+  if (options.featured) {
+    conditions.push(eq(products.isFeatured, true));
+  }
+
+  const orderBy = (() => {
+    switch (sortBy) {
+      case "price-asc":
+        return asc(sql`CAST(${products.basePrice} AS DECIMAL)`);
+      case "price-desc":
+        return desc(sql`CAST(${products.basePrice} AS DECIMAL)`);
+      case "name":
+        return asc(products.name);
+      case "newest":
+      default:
+        return desc(products.createdAt);
+    }
+  })();
+
+  const [productList, countResult] = await Promise.all([
+    db
+      .select({
+        id: products.id,
+        name: products.name,
+        slug: products.slug,
+        basePrice: products.basePrice,
+        compareAtPrice: products.compareAtPrice,
+        stock: products.stock,
+        isFeatured: products.isFeatured,
+        categoryName: categories.name,
+      })
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(and(...conditions))
+      .orderBy(orderBy)
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(products)
+      .where(and(...conditions)),
+  ]);
+
+  // Fetch images for products
+  const productIds = productList.map((p) => p.id);
+  const images =
+    productIds.length > 0
+      ? await db
+          .select({
+            productId: productImages.productId,
+            url: productImages.url,
+            alt: productImages.alt,
+          })
+          .from(productImages)
+          .where(inArray(productImages.productId, productIds))
+          .orderBy(productImages.sortOrder)
+      : [];
+
+  const imagesByProduct = new Map<string, { url: string; alt: string | null }[]>();
+  for (const img of images) {
+    const existing = imagesByProduct.get(img.productId) || [];
+    existing.push({ url: img.url, alt: img.alt });
+    imagesByProduct.set(img.productId, existing);
+  }
+
+  const productsWithImages: ProductListItem[] = productList.map((p) => ({
+    ...p,
+    images: imagesByProduct.get(p.id) || [],
+  }));
+
+  return {
+    products: productsWithImages,
+    total: Number(countResult[0]?.count ?? 0),
+    page,
+    limit,
+    totalPages: Math.ceil(Number(countResult[0]?.count ?? 0) / limit),
+  };
+}
+
+export async function getProductBySlug(slug: string) {
+  const [product] = await db
+    .select()
+    .from(products)
+    .where(and(eq(products.slug, slug), eq(products.isActive, true)))
+    .limit(1);
+
+  if (!product) return null;
+
+  const [images, optionTypes, variants, category] = await Promise.all([
+    db
+      .select()
+      .from(productImages)
+      .where(eq(productImages.productId, product.id))
+      .orderBy(productImages.sortOrder),
+    db
+      .select()
+      .from(productOptionTypes)
+      .where(eq(productOptionTypes.productId, product.id))
+      .orderBy(productOptionTypes.sortOrder),
+    db
+      .select()
+      .from(productVariants)
+      .where(and(eq(productVariants.productId, product.id), eq(productVariants.isActive, true)))
+      .orderBy(productVariants.createdAt),
+    product.categoryId
+      ? db.select().from(categories).where(eq(categories.id, product.categoryId)).limit(1)
+      : Promise.resolve([]),
+  ]);
+
+  // Fetch option values for each option type
+  const optionTypesWithValues = await Promise.all(
+    optionTypes.map(async (ot) => {
+      const values = await db
+        .select()
+        .from(productOptionValues)
+        .where(eq(productOptionValues.optionTypeId, ot.id))
+        .orderBy(productOptionValues.sortOrder);
+      return { ...ot, values };
+    })
+  );
+
+  return {
+    ...product,
+    images,
+    optionTypes: optionTypesWithValues,
+    variants,
+    category: category[0] || null,
+  };
+}
+
+export async function getRelatedProducts(productId: string, categoryId: string | null, limit = 4) {
+  const conditions = [eq(products.isActive, true), sql`${products.id} != ${productId}`];
+
+  if (categoryId) {
+    conditions.push(eq(products.categoryId, categoryId));
+  }
+
+  const related = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      slug: products.slug,
+      basePrice: products.basePrice,
+      compareAtPrice: products.compareAtPrice,
+      stock: products.stock,
+      isFeatured: products.isFeatured,
+      categoryName: categories.name,
+    })
+    .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .where(and(...conditions))
+    .orderBy(desc(products.createdAt))
+    .limit(limit);
+
+  const productIds = related.map((p) => p.id);
+  const images =
+    productIds.length > 0
+      ? await db
+          .select({
+            productId: productImages.productId,
+            url: productImages.url,
+            alt: productImages.alt,
+          })
+          .from(productImages)
+          .where(inArray(productImages.productId, productIds))
+          .orderBy(productImages.sortOrder)
+      : [];
+
+  const imagesByProduct = new Map<string, { url: string; alt: string | null }[]>();
+  for (const img of images) {
+    const existing = imagesByProduct.get(img.productId) || [];
+    existing.push({ url: img.url, alt: img.alt });
+    imagesByProduct.set(img.productId, existing);
+  }
+
+  return related.map((p) => ({
+    ...p,
+    images: imagesByProduct.get(p.id) || [],
+  }));
+}
