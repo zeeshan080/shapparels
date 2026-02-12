@@ -1,12 +1,9 @@
 import { Metadata } from "next";
 import { Phone, Mail, MessageCircle, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { WHATSAPP_NUMBER } from "@/lib/constants";
+import { ContactForm } from "@/components/shared/contact-form";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -30,27 +27,7 @@ export default function ContactPage() {
         {/* Contact Form */}
         <Card>
           <CardContent className="pt-6">
-            <form className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input id="name" placeholder="Your name" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="your@email.com" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" placeholder="03XX XXXXXXX" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="message">Message</Label>
-                <Textarea id="message" placeholder="How can we help?" rows={5} />
-              </div>
-              <Button type="submit" className="w-full">Send Message</Button>
-            </form>
+            <ContactForm />
           </CardContent>
         </Card>
 
