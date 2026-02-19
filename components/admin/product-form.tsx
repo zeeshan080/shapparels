@@ -93,6 +93,7 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
 
     const data = {
       name: formData.get("name") as string,
+      code: (formData.get("code") as string) || null,
       slug: formData.get("slug") as string,
       description: formData.get("description") as string,
       shortDescription: formData.get("shortDescription") as string,
@@ -155,7 +156,16 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
           <CardTitle className="font-serif">Basic Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="code">Product Code</Label>
+              <Input
+                id="code"
+                name="code"
+                placeholder="e.g. SH-001"
+                defaultValue={initialData?.code}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="name">Product Name *</Label>
               <Input

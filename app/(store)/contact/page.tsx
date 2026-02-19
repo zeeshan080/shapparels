@@ -49,8 +49,8 @@ export default function ContactPage() {
             {
               icon: Mail,
               title: "Email",
-              content: "info@shapparels.com",
-              href: "mailto:info@shapparels.com",
+              content: "info@shapparels.pk",
+              href: "mailto:info@shapparels.pk",
             },
             {
               icon: Clock,

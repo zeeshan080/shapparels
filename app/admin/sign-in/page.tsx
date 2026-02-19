@@ -60,7 +60,7 @@ export default function AdminSignInPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@shapparels.com"
+                placeholder="admin@shapparels.pk"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       .insert(products)
       .values({
         name: parsed.name,
+        code: parsed.code ?? null,
         slug: parsed.slug,
         description: parsed.description,
         shortDescription: parsed.shortDescription,

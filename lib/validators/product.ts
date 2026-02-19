@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const productCreateSchema = z.object({
   name: z.string().min(1, "Product name is required"),
+  code: z.string().optional().nullable(),
   slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with hyphens"),
   description: z.string().optional(),
   shortDescription: z.string().optional(),

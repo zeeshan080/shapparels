@@ -7,6 +7,7 @@ interface ProductCardProps {
   product: {
     id: string;
     name: string;
+    code?: string | null;
     slug: string;
     basePrice: string;
     compareAtPrice: string | null;
@@ -22,6 +23,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const compareAt = product.compareAtPrice ? parseFloat(product.compareAtPrice) : null;
   const hasDiscount = compareAt && compareAt > price;
   const isSoldOut = product.stock <= 0;
+  const displayName = product.code ? `${product.code} - ${product.name}` : product.name;
   const primaryImage = product.images[0];
   const secondImage = product.images[1];
 
@@ -87,7 +89,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </p>
         )}
         <h3 className="font-serif text-sm font-medium text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-          {product.name}
+          {displayName}
         </h3>
         <PriceDisplay price={price} compareAtPrice={compareAt} />
       </div>

@@ -12,6 +12,7 @@ import { eq, and, desc, asc, ilike, or, sql, inArray } from "drizzle-orm";
 export type ProductListItem = {
   id: string;
   name: string;
+  code: string | null;
   slug: string;
   basePrice: string;
   compareAtPrice: string | null;
@@ -82,6 +83,7 @@ export async function getProducts(options: GetProductsOptions = {}) {
       .select({
         id: products.id,
         name: products.name,
+        code: products.code,
         slug: products.slug,
         basePrice: products.basePrice,
         compareAtPrice: products.compareAtPrice,
@@ -199,6 +201,7 @@ export async function getRelatedProducts(productId: string, categoryId: string |
     .select({
       id: products.id,
       name: products.name,
+      code: products.code,
       slug: products.slug,
       basePrice: products.basePrice,
       compareAtPrice: products.compareAtPrice,

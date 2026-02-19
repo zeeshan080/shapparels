@@ -21,11 +21,13 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
   if (!product) return { title: "Product Not Found" };
 
+  const displayName = product.code ? `${product.code} - ${product.name}` : product.name;
+
   return {
-    title: product.metaTitle || product.name,
+    title: product.metaTitle || displayName,
     description: product.metaDescription || product.shortDescription || product.description?.slice(0, 160),
     openGraph: {
-      title: product.metaTitle || product.name,
+      title: product.metaTitle || displayName,
       description: product.metaDescription || product.shortDescription || "",
       images: product.images[0] ? [{ url: product.images[0].url }] : [],
     },
@@ -71,7 +73,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </p>
           )}
           <h1 className="mt-1 font-serif text-3xl font-bold sm:text-4xl">
-            {product.name}
+            {product.code ? `${product.code} - ${product.name}` : product.name}
           </h1>
 
           {product.shortDescription && (

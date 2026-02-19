@@ -39,6 +39,7 @@ export async function PUT(
       .update(products)
       .set({
         name: body.name,
+        code: body.code ?? null,
         slug: body.slug,
         description: body.description,
         shortDescription: body.shortDescription,

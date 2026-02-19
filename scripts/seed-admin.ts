@@ -14,7 +14,7 @@ async function seedAdmin() {
   const sql = postgres(connectionString);
   const db = drizzle(sql);
 
-  const email = "admin@shapparels.com";
+  const email = "admin@shapparels.pk";
   const password = "Admin@123";
 
   try {
