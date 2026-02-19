@@ -18,17 +18,18 @@ async function seedAdmin() {
   const password = "Admin@123";
 
   try {
-    // Check if user exists
+    // Delete existing admin if present
     const existing = await db.select().from(user).where(eq(user.email, email)).limit(1);
     if (existing.length > 0) {
-      console.log("Admin user already exists:", email);
-      await sql.end();
-      process.exit(0);
+      await db.delete(account).where(eq(account.userId, existing[0].id));
+      await db.delete(user).where(eq(user.id, existing[0].id));
+      console.log("Deleted existing admin user");
     }
 
-    // Hash password using scrypt (BetterAuth format)
+    // Hash password using scrypt (BetterAuth format: N=16384, r=16, p=1, dkLen=64)
     const salt = randomBytes(16).toString("hex");
-    const hash = scryptSync(password, salt, 64).toString("hex");
+    const maxmem = 128 * 16384 * 16 * 2;
+    const hash = scryptSync(password, salt, 64, { N: 16384, r: 16, p: 1, maxmem }).toString("hex");
     const hashedPassword = `${salt}:${hash}`;
 
     // Insert user
