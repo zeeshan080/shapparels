@@ -108,6 +108,9 @@ export function CheckoutForm() {
 
       <div className="space-y-4">
         <h3 className="font-serif text-lg font-semibold">Shipping Address</h3>
+        <p className="text-xs text-muted-foreground">
+          Free shipping on orders over Rs. {FREE_SHIPPING_THRESHOLD.toLocaleString()}. Below that, a flat rate of Rs. {SHIPPING_COST} applies.
+        </p>
 
         <div className="space-y-2">
           <Label htmlFor="shippingAddress">Address *</Label>

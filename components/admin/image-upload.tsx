@@ -4,6 +4,50 @@ import { useState, useCallback } from "react";
 import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
+const MAX_WIDTH = 1600;
+const MAX_HEIGHT = 1600;
+const QUALITY = 0.85;
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB (under Vercel's 4.5MB limit)
+
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    // Skip if already small enough
+    if (file.size <= MAX_FILE_SIZE) {
+      resolve(file);
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+
+      // Scale down if needed
+      if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+        const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error("Compression failed"));
+          resolve(new File([blob], file.name, { type: "image/webp" }));
+        },
+        "image/webp",
+        QUALITY
+      );
+    };
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 interface ImageUploadProps {
   images: string[];
   onChange: (images: string[]) => void;
@@ -18,8 +62,10 @@ export function ImageUpload({ images, onChange }: ImageUploadProps) {
 
       try {
         for (const file of Array.from(files)) {
+          const compressed = await compressImage(file);
+
           const formData = new FormData();
-          formData.append("file", file);
+          formData.append("file", compressed);
 
           const res = await fetch("/api/upload", {
             method: "POST",
