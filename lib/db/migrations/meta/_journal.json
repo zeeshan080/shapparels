@@ -22,6 +22,13 @@
       "when": 1770472056264,
       "tag": "0002_square_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772187881599,
+      "tag": "0003_add-nested-categories",
+      "breakpoints": true
     }
   ]
 }

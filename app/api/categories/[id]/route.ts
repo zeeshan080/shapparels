@@ -36,6 +36,23 @@ export async function PUT(
   const { id } = await params;
   const body = await request.json();
 
+  // Determine level from parent
+  let level = 0;
+  if (body.parentId) {
+    const [parent] = await db
+      .select({ level: categories.level })
+      .from(categories)
+      .where(eq(categories.id, body.parentId))
+      .limit(1);
+    if (!parent) {
+      return NextResponse.json({ error: "Parent category not found" }, { status: 400 });
+    }
+    if (parent.level >= 2) {
+      return NextResponse.json({ error: "Maximum nesting depth is 3 levels" }, { status: 400 });
+    }
+    level = parent.level + 1;
+  }
+
   const [updated] = await db
     .update(categories)
     .set({
@@ -43,6 +60,8 @@ export async function PUT(
       slug: body.slug,
       description: body.description || null,
       image: body.image || null,
+      parentId: body.parentId || null,
+      level,
       sortOrder: body.sortOrder || 0,
     })
     .where(eq(categories.id, id))

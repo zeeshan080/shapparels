@@ -24,6 +24,7 @@ export type ProductListItem = {
 
 interface GetProductsOptions {
   categoryId?: string;
+  categoryIds?: string[];
   search?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -39,7 +40,9 @@ export async function getProducts(options: GetProductsOptions = {}) {
 
   const conditions = [eq(products.isActive, true)];
 
-  if (options.categoryId) {
+  if (options.categoryIds && options.categoryIds.length > 0) {
+    conditions.push(inArray(products.categoryId, options.categoryIds));
+  } else if (options.categoryId) {
     conditions.push(eq(products.categoryId, options.categoryId));
   }
 

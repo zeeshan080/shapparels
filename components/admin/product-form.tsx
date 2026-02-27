@@ -23,6 +23,8 @@ import { ImageUpload } from "./image-upload";
 interface Category {
   id: string;
   name: string;
+  parentId?: string | null;
+  level?: number;
 }
 
 interface OptionTypeInput {
@@ -259,9 +261,9 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((cat) => (
+                {buildOrderedCategories(categories).map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name}
+                    {cat.displayName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -373,6 +375,149 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
       </Card>
 
       <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="font-serif">Variants</CardTitle>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setVariants([
+                ...variants,
+                { sku: "", price: "", compareAtPrice: "", stock: "0", optionValueLabels: [] },
+              ])
+            }
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Variant
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {variants.map((variant, vi) => (
+            <div
+              key={vi}
+              className="rounded-md border border-border/50 p-4 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Variant {vi + 1}</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setVariants(variants.filter((_, i) => i !== vi))}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-4">
+                <div className="space-y-2">
+                  <Label>SKU</Label>
+                  <Input
+                    placeholder="e.g. SH-001-BLK"
+                    value={variant.sku}
+                    onChange={(e) => {
+                      const updated = [...variants];
+                      updated[vi].sku = e.target.value;
+                      setVariants(updated);
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Price (PKR) *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={variant.price}
+                    onChange={(e) => {
+                      const updated = [...variants];
+                      updated[vi].price = e.target.value;
+                      setVariants(updated);
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Compare At Price</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={variant.compareAtPrice}
+                    onChange={(e) => {
+                      const updated = [...variants];
+                      updated[vi].compareAtPrice = e.target.value;
+                      setVariants(updated);
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Stock *</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={variant.stock}
+                    onChange={(e) => {
+                      const updated = [...variants];
+                      updated[vi].stock = e.target.value;
+                      setVariants(updated);
+                    }}
+                  />
+                </div>
+              </div>
+              {optionTypes.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">
+                    Option Values (select which option values this variant represents)
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {optionTypes.map((ot, otIndex) =>
+                      ot.values
+                        .filter((v) => v.trim())
+                        .map((val, valIndex) => {
+                          const label = `${ot.name}: ${val}`;
+                          const isSelected = variant.optionValueLabels.includes(label);
+                          return (
+                            <Button
+                              key={`${otIndex}-${valIndex}`}
+                              type="button"
+                              variant={isSelected ? "default" : "outline"}
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => {
+                                const updated = [...variants];
+                                if (isSelected) {
+                                  updated[vi].optionValueLabels = updated[vi].optionValueLabels.filter(
+                                    (l) => l !== label
+                                  );
+                                } else {
+                                  updated[vi].optionValueLabels = [
+                                    ...updated[vi].optionValueLabels,
+                                    label,
+                                  ];
+                                }
+                                setVariants(updated);
+                              }}
+                            >
+                              {label}
+                            </Button>
+                          );
+                        })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          {variants.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No variants added. The product will use the base price and stock above.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader>
           <CardTitle className="font-serif">SEO</CardTitle>
         </CardHeader>
@@ -403,4 +548,24 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
       </div>
     </form>
   );
+}
+
+function buildOrderedCategories(categories: Category[]): (Category & { displayName: string })[] {
+  const map = new Map<string | null, Category[]>();
+  for (const cat of categories) {
+    const key = cat.parentId ?? null;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(cat);
+  }
+
+  const result: (Category & { displayName: string })[] = [];
+  const addChildren = (parentId: string | null, prefix: string) => {
+    const children = map.get(parentId) || [];
+    for (const child of children) {
+      result.push({ ...child, displayName: prefix ? `${prefix} > ${child.name}` : child.name });
+      addChildren(child.id, prefix ? `${prefix} > ${child.name}` : child.name);
+    }
+  };
+  addChildren(null, "");
+  return result;
 }

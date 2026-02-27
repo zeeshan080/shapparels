@@ -99,6 +99,23 @@ export async function PUT(
       }
     }
 
+    // Replace variants
+    if (body.variants) {
+      await db.delete(productVariants).where(eq(productVariants.productId, id));
+      if (body.variants.length > 0) {
+        await db.insert(productVariants).values(
+          body.variants.map((v: any) => ({
+            productId: id,
+            sku: v.sku || null,
+            price: v.price.toString(),
+            compareAtPrice: v.compareAtPrice?.toString() ?? null,
+            stock: v.stock ?? 0,
+            optionValueIds: v.optionValueIds || [],
+          }))
+        );
+      }
+    }
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Product update error:", error);

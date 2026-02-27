@@ -12,10 +12,17 @@ interface Category {
   id: string;
   name: string;
   slug: string;
+  parentId?: string | null;
+  level?: number;
 }
 
 interface ProductFiltersProps {
   categories: Category[];
+}
+
+function getIndentLabel(cat: Category, all: Category[]): string {
+  const prefix = "\u00A0\u00A0".repeat(cat.level ?? 0);
+  return prefix + cat.name;
 }
 
 export function ProductFilters({ categories }: ProductFiltersProps) {
@@ -44,13 +51,16 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
     router.push("/products");
   };
 
+  // Build ordered flat list respecting hierarchy
+  const orderedCategories = buildOrderedList(categories);
+
   return (
     <div className="space-y-6">
       <div>
         <h3 className="font-serif text-sm font-semibold">Categories</h3>
         <div className="mt-3 space-y-2">
-          {categories.map((cat) => (
-            <div key={cat.id} className="flex items-center gap-2">
+          {orderedCategories.map((cat) => (
+            <div key={cat.id} className="flex items-center gap-2" style={{ paddingLeft: (cat.level ?? 0) * 16 }}>
               <Checkbox
                 id={`cat-${cat.id}`}
                 checked={selectedCategory === cat.id}
@@ -98,4 +108,24 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
       </Button>
     </div>
   );
+}
+
+function buildOrderedList(categories: Category[]): Category[] {
+  const map = new Map<string | null, Category[]>();
+  for (const cat of categories) {
+    const key = cat.parentId ?? null;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(cat);
+  }
+
+  const result: Category[] = [];
+  const addChildren = (parentId: string | null) => {
+    const children = map.get(parentId) || [];
+    for (const child of children) {
+      result.push(child);
+      addChildren(child.id);
+    }
+  };
+  addChildren(null);
+  return result;
 }

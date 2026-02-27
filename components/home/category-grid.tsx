@@ -2,13 +2,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { db } from "@/lib/db";
 import { categories } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, isNull, and } from "drizzle-orm";
 
 export async function CategoryGrid() {
   const allCategories = await db
     .select()
     .from(categories)
-    .where(eq(categories.isActive, true))
+    .where(and(eq(categories.isActive, true), isNull(categories.parentId)))
     .orderBy(asc(categories.sortOrder));
 
   if (allCategories.length === 0) {

@@ -52,6 +52,55 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
+    // Insert images
+    if (body.images && body.images.length > 0) {
+      await db.insert(productImages).values(
+        body.images.map((url: string, index: number) => ({
+          productId: product.id,
+          url,
+          alt: parsed.name,
+          sortOrder: index,
+        }))
+      );
+    }
+
+    // Insert option types and values
+    if (body.optionTypes && body.optionTypes.length > 0) {
+      for (let i = 0; i < body.optionTypes.length; i++) {
+        const ot = body.optionTypes[i];
+        if (!ot.name) continue;
+        const [insertedType] = await db
+          .insert(productOptionTypes)
+          .values({ productId: product.id, name: ot.name, sortOrder: i })
+          .returning();
+
+        const validValues = (ot.values || []).filter((v: string) => v.trim());
+        if (validValues.length > 0) {
+          await db.insert(productOptionValues).values(
+            validValues.map((v: string, j: number) => ({
+              optionTypeId: insertedType.id,
+              value: v,
+              sortOrder: j,
+            }))
+          );
+        }
+      }
+    }
+
+    // Insert variants
+    if (body.variants && body.variants.length > 0) {
+      await db.insert(productVariants).values(
+        body.variants.map((v: any) => ({
+          productId: product.id,
+          sku: v.sku || null,
+          price: v.price.toString(),
+          compareAtPrice: v.compareAtPrice?.toString() ?? null,
+          stock: v.stock ?? 0,
+          optionValueIds: v.optionValueIds || [],
+        }))
+      );
+    }
+
     return NextResponse.json(product, { status: 201 });
   } catch (error: any) {
     if (error.name === "ZodError") {
