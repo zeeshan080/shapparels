@@ -16,6 +16,7 @@ export default async function AdminProductsPage() {
       name: products.name,
       slug: products.slug,
       basePrice: products.basePrice,
+      stock: products.stock,
       isActive: products.isActive,
       isFeatured: products.isFeatured,
       categoryName: categories.name,
@@ -113,7 +114,7 @@ export default async function AdminProductsPage() {
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{product.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {product.categoryName || "No category"} · Stock: {stockMap.get(product.id) ?? 0}
+                  {product.categoryName || "No category"} · Stock: {stockMap.has(product.id) ? stockMap.get(product.id) : product.stock}
                 </p>
               </div>
 

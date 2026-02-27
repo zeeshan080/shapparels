@@ -29,15 +29,7 @@ interface Category {
 
 interface OptionTypeInput {
   name: string;
-  values: string[];
-}
-
-interface VariantInput {
-  sku: string;
-  price: string;
-  compareAtPrice: string;
-  stock: string;
-  optionValueLabels: string[];
+  values: { label: string; price: string; compareAtPrice: string; stock: string; sku: string }[];
 }
 
 interface ProductFormProps {
@@ -51,21 +43,30 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
   const [images, setImages] = useState<string[]>(
     initialData?.images?.map((i: any) => i.url) || []
   );
-  const [optionTypes, setOptionTypes] = useState<OptionTypeInput[]>(
-    initialData?.optionTypes?.map((ot: any) => ({
+
+  // Build initial option types from existing data
+  const buildInitialOptionTypes = (): OptionTypeInput[] => {
+    if (!initialData?.optionTypes?.length) return [];
+
+    return initialData.optionTypes.map((ot: any) => ({
       name: ot.name,
-      values: ot.values.map((v: any) => v.value),
-    })) || []
-  );
-  const [variants, setVariants] = useState<VariantInput[]>(
-    initialData?.variants?.map((v: any) => ({
-      sku: v.sku || "",
-      price: v.price,
-      compareAtPrice: v.compareAtPrice || "",
-      stock: v.stock.toString(),
-      optionValueLabels: [],
-    })) || []
-  );
+      values: ot.values.map((v: any) => {
+        // Find the variant that matches this option value
+        const matchingVariant = (initialData.variants || []).find((variant: any) =>
+          (variant.optionValueIds ?? []).includes(v.id)
+        );
+        return {
+          label: v.value,
+          price: matchingVariant?.price || "",
+          compareAtPrice: matchingVariant?.compareAtPrice || "",
+          stock: matchingVariant?.stock?.toString() || "0",
+          sku: matchingVariant?.sku || "",
+        };
+      }),
+    }));
+  };
+
+  const [optionTypes, setOptionTypes] = useState<OptionTypeInput[]>(buildInitialOptionTypes());
 
   const generateSlug = (name: string) =>
     name
@@ -74,7 +75,7 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
       .replace(/^-|-$/g, "");
 
   const addOptionType = () => {
-    setOptionTypes([...optionTypes, { name: "", values: [""] }]);
+    setOptionTypes([...optionTypes, { name: "", values: [{ label: "", price: "", compareAtPrice: "", stock: "0", sku: "" }] }]);
   };
 
   const removeOptionType = (index: number) => {
@@ -83,7 +84,19 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
 
   const addOptionValue = (typeIndex: number) => {
     const updated = [...optionTypes];
-    updated[typeIndex].values.push("");
+    updated[typeIndex].values.push({ label: "", price: "", compareAtPrice: "", stock: "0", sku: "" });
+    setOptionTypes(updated);
+  };
+
+  const removeOptionValue = (typeIndex: number, valIndex: number) => {
+    const updated = [...optionTypes];
+    updated[typeIndex].values = updated[typeIndex].values.filter((_, i) => i !== valIndex);
+    setOptionTypes(updated);
+  };
+
+  const updateOptionValue = (typeIndex: number, valIndex: number, field: string, value: string) => {
+    const updated = [...optionTypes];
+    (updated[typeIndex].values[valIndex] as any)[field] = value;
     setOptionTypes(updated);
   };
 
@@ -92,6 +105,29 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+
+    // Build option types and variants from the merged UI
+    const cleanOptionTypes = optionTypes
+      .filter((ot) => ot.name && ot.values.some((v) => v.label.trim()))
+      .map((ot) => ({
+        name: ot.name,
+        values: ot.values.filter((v) => v.label.trim()).map((v) => v.label),
+      }));
+
+    // Each option value becomes a variant
+    const variants = optionTypes
+      .filter((ot) => ot.name && ot.values.some((v) => v.label.trim()))
+      .flatMap((ot) =>
+        ot.values
+          .filter((v) => v.label.trim())
+          .map((v) => ({
+            sku: v.sku || null,
+            price: parseFloat(v.price) || parseFloat(formData.get("basePrice") as string),
+            compareAtPrice: v.compareAtPrice ? parseFloat(v.compareAtPrice) : null,
+            stock: parseInt(v.stock) || 0,
+            optionValueLabels: [`${ot.name}: ${v.label}`],
+          }))
+      );
 
     const data = {
       name: formData.get("name") as string,
@@ -114,13 +150,8 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
         .map((t) => t.trim())
         .filter(Boolean),
       images,
-      optionTypes: optionTypes.filter((ot) => ot.name && ot.values.some(Boolean)),
-      variants: variants.map((v) => ({
-        ...v,
-        price: parseFloat(v.price),
-        compareAtPrice: v.compareAtPrice ? parseFloat(v.compareAtPrice) : null,
-        stock: parseInt(v.stock),
-      })),
+      optionTypes: cleanOptionTypes,
+      variants,
     };
 
     try {
@@ -237,7 +268,7 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="stock">Stock Quantity</Label>
+            <Label htmlFor="stock">Base Stock Quantity</Label>
             <Input
               id="stock"
               name="stock"
@@ -245,6 +276,7 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
               min="0"
               defaultValue={initialData?.stock ?? 0}
             />
+            <p className="text-xs text-muted-foreground">Used when no variants are added</p>
           </div>
         </CardContent>
       </Card>
@@ -312,15 +344,20 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="font-serif">Options &amp; Variants</CardTitle>
+          <div>
+            <CardTitle className="font-serif">Product Variants</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add options like Color or Size. Each value gets its own stock and optional price.
+            </p>
+          </div>
           <Button type="button" variant="outline" size="sm" onClick={addOptionType}>
             <Plus className="mr-2 h-4 w-4" />
             Add Option
           </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {optionTypes.map((ot, typeIndex) => (
-            <div key={typeIndex} className="rounded-md border border-border/50 p-4 space-y-3">
+            <div key={typeIndex} className="rounded-md border border-border/50 p-4 space-y-4">
               <div className="flex items-center gap-2">
                 <Input
                   placeholder="Option name (e.g. Color, Size)"
@@ -330,7 +367,7 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
                     updated[typeIndex].name = e.target.value;
                     setOptionTypes(updated);
                   }}
-                  className="flex-1"
+                  className="flex-1 font-medium"
                 />
                 <Button
                   type="button"
@@ -341,177 +378,76 @@ export function ProductForm({ categories, initialData }: ProductFormProps) {
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
+
+              <Separator />
+
+              <div className="space-y-3">
                 {ot.values.map((val, valIndex) => (
-                  <Input
-                    key={valIndex}
-                    placeholder={`Value ${valIndex + 1}`}
-                    value={val}
-                    onChange={(e) => {
-                      const updated = [...optionTypes];
-                      updated[typeIndex].values[valIndex] = e.target.value;
-                      setOptionTypes(updated);
-                    }}
-                    className="w-32"
-                  />
+                  <div key={valIndex} className="grid gap-3 sm:grid-cols-5 items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Value *</Label>
+                      <Input
+                        placeholder={ot.name ? `e.g. ${ot.name === "Color" ? "Red" : ot.name === "Size" ? "Large" : "Value"}` : "Value"}
+                        value={val.label}
+                        onChange={(e) => updateOptionValue(typeIndex, valIndex, "label", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Price (PKR)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Use base"
+                        value={val.price}
+                        onChange={(e) => updateOptionValue(typeIndex, valIndex, "price", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Stock *</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={val.stock}
+                        onChange={(e) => updateOptionValue(typeIndex, valIndex, "stock", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">SKU</Label>
+                      <Input
+                        placeholder="Optional"
+                        value={val.sku}
+                        onChange={(e) => updateOptionValue(typeIndex, valIndex, "sku", e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="self-end"
+                      onClick={() => removeOptionValue(typeIndex, valIndex)}
+                      disabled={ot.values.length <= 1}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addOptionValue(typeIndex)}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
               </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addOptionValue(typeIndex)}
+              >
+                <Plus className="mr-2 h-3 w-3" />
+                Add Value
+              </Button>
             </div>
           ))}
           {optionTypes.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No options added. Products without options will use the base price.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="font-serif">Variants</CardTitle>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setVariants([
-                ...variants,
-                { sku: "", price: "", compareAtPrice: "", stock: "0", optionValueLabels: [] },
-              ])
-            }
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Variant
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {variants.map((variant, vi) => (
-            <div
-              key={vi}
-              className="rounded-md border border-border/50 p-4 space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Variant {vi + 1}</p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setVariants(variants.filter((_, i) => i !== vi))}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-4">
-                <div className="space-y-2">
-                  <Label>SKU</Label>
-                  <Input
-                    placeholder="e.g. SH-001-BLK"
-                    value={variant.sku}
-                    onChange={(e) => {
-                      const updated = [...variants];
-                      updated[vi].sku = e.target.value;
-                      setVariants(updated);
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Price (PKR) *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={variant.price}
-                    onChange={(e) => {
-                      const updated = [...variants];
-                      updated[vi].price = e.target.value;
-                      setVariants(updated);
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Compare At Price</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={variant.compareAtPrice}
-                    onChange={(e) => {
-                      const updated = [...variants];
-                      updated[vi].compareAtPrice = e.target.value;
-                      setVariants(updated);
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Stock *</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={variant.stock}
-                    onChange={(e) => {
-                      const updated = [...variants];
-                      updated[vi].stock = e.target.value;
-                      setVariants(updated);
-                    }}
-                  />
-                </div>
-              </div>
-              {optionTypes.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">
-                    Option Values (select which option values this variant represents)
-                  </Label>
-                  <div className="flex flex-wrap gap-2">
-                    {optionTypes.map((ot, otIndex) =>
-                      ot.values
-                        .filter((v) => v.trim())
-                        .map((val, valIndex) => {
-                          const label = `${ot.name}: ${val}`;
-                          const isSelected = variant.optionValueLabels.includes(label);
-                          return (
-                            <Button
-                              key={`${otIndex}-${valIndex}`}
-                              type="button"
-                              variant={isSelected ? "default" : "outline"}
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => {
-                                const updated = [...variants];
-                                if (isSelected) {
-                                  updated[vi].optionValueLabels = updated[vi].optionValueLabels.filter(
-                                    (l) => l !== label
-                                  );
-                                } else {
-                                  updated[vi].optionValueLabels = [
-                                    ...updated[vi].optionValueLabels,
-                                    label,
-                                  ];
-                                }
-                                setVariants(updated);
-                              }}
-                            >
-                              {label}
-                            </Button>
-                          );
-                        })
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-          {variants.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No variants added. The product will use the base price and stock above.
+              No variants added. Product will use the base price and stock above.
             </p>
           )}
         </CardContent>

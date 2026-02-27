@@ -30,6 +30,8 @@ export function VariantSelector({
 }: VariantSelectorProps) {
   if (optionTypes.length === 0) return null;
 
+  const hasVariants = variants.length > 0;
+
   return (
     <div className="space-y-4">
       {optionTypes.map((optionType) => (
@@ -41,8 +43,9 @@ export function VariantSelector({
             {optionType.values.map((value) => {
               const isSelected = selectedOptions[optionType.id] === value.id;
 
-              // Check if this option value is available in any variant
-              const isAvailable = variants.some(
+              // If no variants exist, all options are available (pure display options)
+              // If variants exist, check if any variant with this value has stock
+              const isAvailable = !hasVariants || variants.some(
                 (v) =>
                   (v.optionValueIds ?? []).includes(value.id) && v.stock > 0
               );
