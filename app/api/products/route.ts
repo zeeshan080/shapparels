@@ -64,7 +64,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert option types and values
+    // Insert option types and values, build label->id map for variants
+    const labelToValueId = new Map<string, string>();
+
     if (body.optionTypes && body.optionTypes.length > 0) {
       for (let i = 0; i < body.optionTypes.length; i++) {
         const ot = body.optionTypes[i];
@@ -76,18 +78,22 @@ export async function POST(request: NextRequest) {
 
         const validValues = (ot.values || []).filter((v: string) => v.trim());
         if (validValues.length > 0) {
-          await db.insert(productOptionValues).values(
+          const insertedValues = await db.insert(productOptionValues).values(
             validValues.map((v: string, j: number) => ({
               optionTypeId: insertedType.id,
               value: v,
               sortOrder: j,
             }))
-          );
+          ).returning();
+
+          for (const iv of insertedValues) {
+            labelToValueId.set(`${ot.name}: ${iv.value}`, iv.id);
+          }
         }
       }
     }
 
-    // Insert variants
+    // Insert variants with resolved optionValueIds
     if (body.variants && body.variants.length > 0) {
       await db.insert(productVariants).values(
         body.variants.map((v: any) => ({
@@ -96,7 +102,9 @@ export async function POST(request: NextRequest) {
           price: v.price.toString(),
           compareAtPrice: v.compareAtPrice?.toString() ?? null,
           stock: v.stock ?? 0,
-          optionValueIds: v.optionValueIds || [],
+          optionValueIds: (v.optionValueLabels || [])
+            .map((label: string) => labelToValueId.get(label))
+            .filter(Boolean),
         }))
       );
     }

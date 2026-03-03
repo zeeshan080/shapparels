@@ -75,7 +75,9 @@ export async function PUT(
       }
     }
 
-    // Replace option types and values
+    // Replace option types and values, build label->id map for variants
+    const labelToValueId = new Map<string, string>();
+
     if (body.optionTypes) {
       await db.delete(productOptionTypes).where(eq(productOptionTypes.productId, id));
       for (let i = 0; i < body.optionTypes.length; i++) {
@@ -88,18 +90,22 @@ export async function PUT(
 
         const validValues = ot.values.filter((v: string) => v.trim());
         if (validValues.length > 0) {
-          await db.insert(productOptionValues).values(
+          const insertedValues = await db.insert(productOptionValues).values(
             validValues.map((v: string, j: number) => ({
               optionTypeId: insertedType.id,
               value: v,
               sortOrder: j,
             }))
-          );
+          ).returning();
+
+          for (const iv of insertedValues) {
+            labelToValueId.set(`${ot.name}: ${iv.value}`, iv.id);
+          }
         }
       }
     }
 
-    // Replace variants
+    // Replace variants with resolved optionValueIds
     if (body.variants) {
       await db.delete(productVariants).where(eq(productVariants.productId, id));
       if (body.variants.length > 0) {
@@ -110,7 +116,9 @@ export async function PUT(
             price: v.price.toString(),
             compareAtPrice: v.compareAtPrice?.toString() ?? null,
             stock: v.stock ?? 0,
-            optionValueIds: v.optionValueIds || [],
+            optionValueIds: (v.optionValueLabels || [])
+              .map((label: string) => labelToValueId.get(label))
+              .filter(Boolean),
           }))
         );
       }
