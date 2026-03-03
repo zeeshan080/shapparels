@@ -74,7 +74,8 @@ export function AddToCartButton({
         <div className="flex items-center rounded-md border border-border">
           <button
             onClick={() => setQuantity(Math.max(1, quantity - 1))}
-            className="flex h-9 w-9 items-center justify-center hover:bg-accent transition-colors"
+            disabled={disabled}
+            className="flex h-9 w-9 items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Minus className="h-4 w-4" />
           </button>
@@ -83,8 +84,8 @@ export function AddToCartButton({
           </span>
           <button
             onClick={() => setQuantity(Math.min(quantity + 1, Math.max(remaining, 1)))}
-            disabled={stock !== undefined && quantity >= remaining}
-            className="flex h-9 w-9 items-center justify-center hover:bg-accent transition-colors disabled:opacity-30"
+            disabled={disabled || (stock !== undefined && quantity >= remaining)}
+            className="flex h-9 w-9 items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" />
           </button>

@@ -42,7 +42,15 @@ export function ProductDetailClient({
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
 
   const handleOptionChange = (optionTypeId: string, valueId: string) => {
-    setSelectedOptions((prev) => ({ ...prev, [optionTypeId]: valueId }));
+    setSelectedOptions((prev) => {
+      // Toggle off if already selected
+      if (prev[optionTypeId] === valueId) {
+        const next = { ...prev };
+        delete next[optionTypeId];
+        return next;
+      }
+      return { ...prev, [optionTypeId]: valueId };
+    });
   };
 
   const selectedVariant = useMemo(() => {
