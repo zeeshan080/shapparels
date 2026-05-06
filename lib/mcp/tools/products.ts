@@ -68,6 +68,7 @@ export function registerProductTools(server: McpServer) {
     description: "[Admin] Create a new product with validation",
     inputSchema: {
       name: z.string().min(1).describe("Product name"),
+      code: z.string().optional().nullable().describe("Internal product code/SKU"),
       slug: z.string().min(1).regex(/^[a-z0-9-]+$/).describe("URL slug (lowercase, hyphens)"),
       description: z.string().optional().describe("Full description"),
       shortDescription: z.string().optional().describe("Short description"),
@@ -89,6 +90,7 @@ export function registerProductTools(server: McpServer) {
       .insert(products)
       .values({
         name: params.name,
+        code: params.code ?? null,
         slug: params.slug,
         description: params.description,
         shortDescription: params.shortDescription,
@@ -116,6 +118,7 @@ export function registerProductTools(server: McpServer) {
     inputSchema: {
       id: z.string().uuid().describe("Product UUID"),
       name: z.string().optional().describe("Product name"),
+      code: z.string().optional().nullable().describe("Internal product code/SKU"),
       slug: z.string().optional().describe("URL slug"),
       description: z.string().optional().describe("Full description"),
       shortDescription: z.string().optional().describe("Short description"),
@@ -140,6 +143,7 @@ export function registerProductTools(server: McpServer) {
 
     const updates: Record<string, unknown> = {};
     if (fields.name !== undefined) updates.name = fields.name;
+    if (fields.code !== undefined) updates.code = fields.code ?? null;
     if (fields.slug !== undefined) updates.slug = fields.slug;
     if (fields.description !== undefined) updates.description = fields.description;
     if (fields.shortDescription !== undefined) updates.shortDescription = fields.shortDescription;
