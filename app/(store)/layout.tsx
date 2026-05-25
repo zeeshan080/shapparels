@@ -1,6 +1,6 @@
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { WhatsAppButton } from "@/components/layout/whatsapp-button";
+// import { WhatsAppButton } from "@/components/layout/whatsapp-button";
 
 export default function StoreLayout({
   children,
@@ -12,7 +12,7 @@ export default function StoreLayout({
       <Header />
       <main className="min-h-screen">{children}</main>
       <Footer />
-      <WhatsAppButton />
+      {/* <WhatsAppButton /> */}
     </>
   );
 }
