@@ -5,7 +5,6 @@ import { ShoppingBag, Minus, Plus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cart-store";
 import { WHATSAPP_NUMBER, CURRENCY_SYMBOL } from "@/lib/constants";
-import { trackAddToCart } from "@/lib/fb-pixel";
 import { toast } from "sonner";
 
 interface AddToCartButtonProps {
@@ -58,12 +57,6 @@ export function AddToCartButton({
       variantLabel,
       quantity,
       maxStock: stock,
-    });
-    trackAddToCart({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      quantity,
     });
     toast.success(`${product.name} added to cart`);
     setQuantity(1);

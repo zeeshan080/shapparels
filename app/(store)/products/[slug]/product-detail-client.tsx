@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { PriceDisplay } from "@/components/shared/price-display";
 import { VariantSelector } from "@/components/products/variant-selector";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
-import { trackViewContent } from "@/lib/fb-pixel";
 
 interface OptionType {
   id: string;
@@ -41,15 +40,6 @@ export function ProductDetailClient({
   variants,
 }: ProductDetailClientProps) {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
-
-  // Fire ViewContent once per product view.
-  useEffect(() => {
-    trackViewContent({
-      id: product.id,
-      name: product.name,
-      value: parseFloat(product.basePrice),
-    });
-  }, [product.id, product.name, product.basePrice]);
 
   const handleOptionChange = (optionTypeId: string, valueId: string) => {
     setSelectedOptions((prev) => {
